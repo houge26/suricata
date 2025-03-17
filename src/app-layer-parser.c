@@ -698,10 +698,11 @@ uint64_t AppLayerParserGetTransactionInspectId(AppLayerParserState *pstate, uint
 {
     SCEnter();
 
-    if (pstate == NULL)
-        SCReturnCT(0ULL, "uint64_t");
+    if (pstate != NULL)
+        SCReturnCT(pstate->inspect_id[(direction & STREAM_TOSERVER) ? 0 : 1], "uint64_t");
 
-    SCReturnCT(pstate->inspect_id[(direction & STREAM_TOSERVER) ? 0 : 1], "uint64_t");
+    DEBUG_VALIDATE_BUG_ON(1);
+    SCReturnCT(0ULL, "uint64_t");
 }
 
 inline uint64_t AppLayerParserGetTxDetectFlags(AppLayerTxData *txd, const uint8_t dir)
@@ -957,7 +958,8 @@ void AppLayerParserTransactionsCleanup(Flow *f, const uint8_t pkt_dir)
         }
 
         if (txd && has_tx_detect_flags) {
-            if (!IS_DISRUPTED(ts_disrupt_flags) && f->sgh_toserver != NULL) {
+            if (!IS_DISRUPTED(ts_disrupt_flags) &&
+                    (f->sgh_toserver != NULL || (f->flags & FLOW_SGH_TOSERVER) == 0)) {
                 uint64_t detect_flags_ts = AppLayerParserGetTxDetectFlags(txd, STREAM_TOSERVER);
                 if (!(detect_flags_ts &
                             (APP_LAYER_TX_INSPECTED_FLAG | APP_LAYER_TX_SKIP_INSPECT_FLAG))) {
@@ -966,7 +968,8 @@ void AppLayerParserTransactionsCleanup(Flow *f, const uint8_t pkt_dir)
                     tx_skipped = true;
                 }
             }
-            if (!IS_DISRUPTED(tc_disrupt_flags) && f->sgh_toclient != NULL) {
+            if (!IS_DISRUPTED(tc_disrupt_flags) &&
+                    (f->sgh_toclient != NULL || (f->flags & FLOW_SGH_TOCLIENT) == 0)) {
                 uint64_t detect_flags_tc = AppLayerParserGetTxDetectFlags(txd, STREAM_TOCLIENT);
                 if (!(detect_flags_tc &
                             (APP_LAYER_TX_INSPECTED_FLAG | APP_LAYER_TX_SKIP_INSPECT_FLAG))) {
@@ -1729,15 +1732,15 @@ void AppLayerParserRegisterProtocolParsers(void)
 
     RegisterHTPParsers();
     RegisterSSLParsers();
-    rs_dcerpc_register_parser();
-    rs_dcerpc_udp_register_parser();
+    SCRegisterDcerpcParser();
+    SCRegisterDcerpcUdpParser();
     RegisterSMBParsers();
     RegisterFTPParsers();
     RegisterSSHParsers();
     RegisterSMTPParsers();
     SCRegisterDnsUdpParser();
     SCRegisterDnsTcpParser();
-    rs_bittorrent_dht_udp_register_parser();
+    SCRegisterBittorrentDhtUdpParser();
     RegisterModbusParsers();
     SCEnipRegisterParsers();
     RegisterDNP3Parsers();

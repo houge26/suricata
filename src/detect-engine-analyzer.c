@@ -166,7 +166,7 @@ static void FpPatternStatsAdd(FpPatternStats *fp, int list, uint16_t patlen)
     f->tot += patlen;
 }
 
-void EngineAnalysisFP(const DetectEngineCtx *de_ctx, const Signature *s, char *line)
+void EngineAnalysisFP(const DetectEngineCtx *de_ctx, const Signature *s, const char *line)
 {
     int fast_pattern_set = 0;
     int fast_pattern_only_set = 0;
@@ -620,7 +620,8 @@ static void EngineAnalysisRulesPrintFP(const DetectEngineCtx *de_ctx, const Sign
     fprintf(ea_ctx->rule_engine_analysis_fp, "buffer.\n");
 }
 
-void EngineAnalysisRulesFailure(const DetectEngineCtx *de_ctx, char *line, char *file, int lineno)
+void EngineAnalysisRulesFailure(
+        const DetectEngineCtx *de_ctx, const char *line, const char *file, int lineno)
 {
     fprintf(de_ctx->ea->fp_engine_analysis_fp, "== Sid: UNKNOWN ==\n");
     fprintf(de_ctx->ea->fp_engine_analysis_fp, "%s\n", line);
@@ -1008,6 +1009,44 @@ void EngineAnalysisRules2(const DetectEngineCtx *de_ctx, const Signature *s)
     }
     if (s->mask & SIG_MASK_REQUIRE_REAL_PKT) {
         jb_append_string(ctx.js, "real_pkt");
+    }
+    jb_close(ctx.js);
+
+    jb_open_object(ctx.js, "match_policy");
+    jb_open_array(ctx.js, "actions");
+    if (s->action & ACTION_ALERT) {
+        jb_append_string(ctx.js, "alert");
+    }
+    if (s->action & ACTION_DROP) {
+        jb_append_string(ctx.js, "drop");
+    }
+    if (s->action & ACTION_REJECT) {
+        jb_append_string(ctx.js, "reject");
+    }
+    if (s->action & ACTION_REJECT_DST) {
+        jb_append_string(ctx.js, "reject_dst");
+    }
+    if (s->action & ACTION_REJECT_BOTH) {
+        jb_append_string(ctx.js, "reject_both");
+    }
+    if (s->action & ACTION_CONFIG) {
+        jb_append_string(ctx.js, "config");
+    }
+    if (s->action & ACTION_PASS) {
+        jb_append_string(ctx.js, "pass");
+    }
+    jb_close(ctx.js);
+    enum SignaturePropertyFlowAction flow_action = signature_properties[s->type].flow_action;
+    switch (flow_action) {
+        case SIG_PROP_FLOW_ACTION_PACKET:
+            jb_set_string(ctx.js, "scope", "packet");
+            break;
+        case SIG_PROP_FLOW_ACTION_FLOW:
+            jb_set_string(ctx.js, "scope", "flow");
+            break;
+        case SIG_PROP_FLOW_ACTION_FLOW_IF_STATEFUL:
+            jb_set_string(ctx.js, "scope", "flow_if_stateful");
+            break;
     }
     jb_close(ctx.js);
 

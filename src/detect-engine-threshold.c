@@ -524,8 +524,8 @@ static void FlowThresholdEntryListFree(FlowThresholdEntryList *list)
 /** struct for storing per flow thresholds. This will be stored in the Flow::flowvar list, so it
  * needs to follow the GenericVar header format. */
 typedef struct FlowVarThreshold_ {
-    uint8_t type;
-    uint8_t pad[7];
+    uint16_t type;
+    uint8_t pad[6];
     struct GenericVar_ *next;
     FlowThresholdEntryList *thresholds;
 } FlowVarThreshold;
@@ -947,7 +947,7 @@ static int ThresholdHandlePacketFlow(Flow *f, Packet *p, const DetectThresholdDa
  * \retval 1 alert on this event
  * \retval 0 do not alert on this event
  */
-int PacketAlertThreshold(DetectEngineCtx *de_ctx, DetectEngineThreadCtx *det_ctx,
+int PacketAlertThreshold(const DetectEngineCtx *de_ctx, DetectEngineThreadCtx *det_ctx,
         const DetectThresholdData *td, Packet *p, const Signature *s, PacketAlert *pa)
 {
     SCEnter();

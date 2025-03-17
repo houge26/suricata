@@ -760,10 +760,11 @@ typedef struct DetectReplaceList_ {
 /** list for flowvar store candidates, to be stored from
  *  post-match function */
 typedef struct DetectVarList_ {
+    uint16_t type; /**< type of store candidate POSTMATCH or ALWAYS */
+    uint8_t pad[2];
     uint32_t idx;                       /**< flowvar name idx */
     uint16_t len;                       /**< data len */
     uint16_t key_len;
-    int type;                           /**< type of store candidate POSTMATCH or ALWAYS */
     uint8_t *key;
     uint8_t *buffer;                    /**< alloc'd buffer, may be freed by
                                              post-match, post-non-match */
@@ -946,7 +947,7 @@ typedef struct DetectEngineCtx_ {
 
     /** Store rule file and line so that parsers can use them in errors. */
     int rule_line;
-    char *rule_file;
+    const char *rule_file;
     const char *sigerror;
     bool sigerror_silent;
     bool sigerror_ok;

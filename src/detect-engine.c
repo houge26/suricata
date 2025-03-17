@@ -245,6 +245,21 @@ static void AppLayerInspectEngineRegisterInternal(const char *name, AppProto alp
 void DetectAppLayerInspectEngineRegister(const char *name, AppProto alproto, uint32_t dir,
         int progress, InspectEngineFuncPtr Callback, InspectionBufferGetDataPtr GetData)
 {
+    /* before adding, check that we don't add a duplicate entry, which will
+     * propegate all the way into the packet runtime if allowed. */
+    DetectEngineAppInspectionEngine *t = g_app_inspect_engines;
+    while (t != NULL) {
+        const uint32_t t_direction = t->dir == 0 ? SIG_FLAG_TOSERVER : SIG_FLAG_TOCLIENT;
+        const int sm_list = DetectBufferTypeGetByName(name);
+
+        if (t->sm_list == sm_list && t->alproto == alproto && t_direction == dir &&
+                t->progress == progress && t->v2.Callback == Callback && t->v2.GetData == GetData) {
+            DEBUG_VALIDATE_BUG_ON(1);
+            return;
+        }
+        t = t->next;
+    }
+
     AppLayerInspectEngineRegisterInternal(name, alproto, dir, progress, Callback, GetData, NULL);
 }
 
@@ -2323,15 +2338,50 @@ int DetectEngineInspectPktBufferGeneric(
 }
 
 /** \internal
- *  \brief inject a pseudo packet into each detect thread that doesn't use the
- *         new det_ctx yet
+ *  \brief inject a pseudo packet into each detect thread
+ *         if the thread should flush its output logs.
  */
-static void InjectPackets(ThreadVars **detect_tvs,
-                          DetectEngineThreadCtx **new_det_ctx,
-                          int no_of_detect_tvs)
+void InjectPacketsForFlush(ThreadVars **detect_tvs, int no_of_detect_tvs)
 {
-    /* inject a fake packet if the detect thread isn't using the new ctx yet,
-     * this speeds up the process */
+    /* inject a fake packet if the detect thread that needs it. This function
+     * is called when a heartbeat log-flush request has been made
+     * and it should process a pseudo packet and flush its output logs
+     * to speed the process. */
+#if DEBUG
+    int count = 0;
+#endif
+    for (int i = 0; i < no_of_detect_tvs; i++) {
+        if (detect_tvs[i]) { // && detect_tvs[i]->inq != NULL) {
+            Packet *p = PacketGetFromAlloc();
+            if (p != NULL) {
+                SCLogDebug("Injecting pkt for tv %s[i=%d] %d", detect_tvs[i]->name, i, count++);
+                p->flags |= PKT_PSEUDO_STREAM_END;
+                p->flags |= PKT_PSEUDO_LOG_FLUSH;
+                PKT_SET_SRC(p, PKT_SRC_DETECT_RELOAD_FLUSH);
+                PacketQueue *q = detect_tvs[i]->stream_pq;
+                SCMutexLock(&q->mutex_q);
+                PacketEnqueue(q, p);
+                SCCondSignal(&q->cond_q);
+                SCMutexUnlock(&q->mutex_q);
+            }
+        }
+    }
+    SCLogDebug("leaving: thread notification count = %d", count);
+}
+
+/** \internal
+ *  \brief inject a pseudo packet into each detect thread
+ *      -that doesn't use the new det_ctx yet
+ *      -*or*, if the thread should flush its output logs.
+ */
+static void InjectPackets(
+        ThreadVars **detect_tvs, DetectEngineThreadCtx **new_det_ctx, int no_of_detect_tvs)
+{
+    /* inject a fake packet if the detect thread that needs it. This function
+     * is called if
+     *  - A thread isn't using a DE ctx and should
+     *  - Or, it should process a pseudo packet and flush its output logs.
+     * to speed the process. */
     for (int i = 0; i < no_of_detect_tvs; i++) {
         if (SC_ATOMIC_GET(new_det_ctx[i]->so_far_used_by_detect) != 1) {
             if (detect_tvs[i]->inq != NULL) {

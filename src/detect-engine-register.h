@@ -56,8 +56,7 @@ enum DetectKeywordId {
     DETECT_FLOW,
     /* end prefilter sort */
 
-    /* values used in util-var.c go here, to avoid int overflows
-     * TODO update var logic to use a larger type, see #6855. */
+    /* values used in util-var.c go here, to avoid int overflows */
     DETECT_THRESHOLD,
     DETECT_FLOWBITS,
     DETECT_FLOWVAR,
@@ -246,9 +245,8 @@ enum DetectKeywordId {
     DETECT_DNS_QUERY,
     DETECT_DNS_OPCODE,
     DETECT_DNS_RCODE,
+    DETECT_DNS_RESPONSE,
     DETECT_DNS_RRTYPE,
-    DETECT_DNS_ANSWER_NAME,
-    DETECT_DNS_QUERY_NAME,
     DETECT_TLS_SNI,
     DETECT_TLS_CERTS,
     DETECT_TLS_CERT_ISSUER,

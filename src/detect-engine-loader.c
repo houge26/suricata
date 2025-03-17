@@ -110,10 +110,9 @@ char *DetectLoadCompleteSigPath(const DetectEngineCtx *de_ctx, const char *sig_f
  *  \param badsigs_tot Will store number of invalid signatures in the file
  *  \retval 0 on success, -1 on error
  */
-static int DetectLoadSigFile(
-        DetectEngineCtx *de_ctx, char *sig_file, int *goodsigs, int *badsigs, int *skippedsigs)
+static int DetectLoadSigFile(DetectEngineCtx *de_ctx, const char *sig_file, int *goodsigs,
+        int *badsigs, int *skippedsigs)
 {
-    Signature *sig = NULL;
     int good = 0, bad = 0, skipped = 0;
     char line[DETECT_MAX_RULE_SIZE] = "";
     size_t offset = 0;
@@ -164,7 +163,7 @@ static int DetectLoadSigFile(
         de_ctx->rule_file = sig_file;
         de_ctx->rule_line = lineno - multiline;
 
-        sig = DetectEngineAppendSig(de_ctx, line);
+        Signature *sig = DetectEngineAppendSig(de_ctx, line);
         if (sig != NULL) {
             if (rule_engine_analysis_set || fp_engine_analysis_set) {
                 if (fp_engine_analysis_set) {

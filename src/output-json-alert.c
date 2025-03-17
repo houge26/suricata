@@ -416,11 +416,11 @@ static void AlertAddAppLayer(const Packet *p, JsonBuilder *jb,
                     jb_get_mark(jb, &mark);
                     jb_open_object(jb, "dcerpc");
                     if (p->proto == IPPROTO_TCP) {
-                        if (!rs_dcerpc_log_json_record_tcp(state, tx, jb)) {
+                        if (!SCDcerpcLogJsonRecordTcp(state, tx, jb)) {
                             jb_restore_mark(jb, &mark);
                         }
                     } else {
-                        if (!rs_dcerpc_log_json_record_udp(state, tx, jb)) {
+                        if (!SCDcerpcLogJsonRecordUdp(state, tx, jb)) {
                             jb_restore_mark(jb, &mark);
                         }
                     }
@@ -823,6 +823,14 @@ static int AlertJsonDecoderEvent(ThreadVars *tv, JsonAlertLogThread *aft, const 
     return TM_ECODE_OK;
 }
 
+static int JsonAlertFlush(ThreadVars *tv, void *thread_data, const Packet *p)
+{
+    JsonAlertLogThread *aft = thread_data;
+    SCLogDebug("%s flushing %s", tv->name, ((LogFileCtx *)(aft->ctx->file_ctx))->filename);
+    OutputJsonFlush(aft->ctx);
+    return 0;
+}
+
 static int JsonAlertLogger(ThreadVars *tv, void *thread_data, const Packet *p)
 {
     JsonAlertLogThread *aft = thread_data;
@@ -1065,7 +1073,15 @@ error:
 
 void JsonAlertLogRegister (void)
 {
+    OutputPacketLoggerFunctions output_logger_functions = {
+        .LogFunc = JsonAlertLogger,
+        .FlushFunc = JsonAlertFlush,
+        .ConditionFunc = JsonAlertLogCondition,
+        .ThreadInitFunc = JsonAlertLogThreadInit,
+        .ThreadDeinitFunc = JsonAlertLogThreadDeinit,
+        .ThreadExitPrintStatsFunc = NULL,
+    };
+
     OutputRegisterPacketSubModule(LOGGER_JSON_ALERT, "eve-log", MODULE_NAME, "eve-log.alert",
-            JsonAlertLogInitCtxSub, JsonAlertLogger, JsonAlertLogCondition, JsonAlertLogThreadInit,
-            JsonAlertLogThreadDeinit);
+            JsonAlertLogInitCtxSub, &output_logger_functions);
 }
